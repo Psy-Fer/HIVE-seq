@@ -27,3 +27,5 @@ STEM=${QUERY##*/}
 minimap2 -x map-ont -t 8 -k15 $REF $QUERY > ${OUTPUT}/${STEM%*.fastq}.paf
 minimap2 -ax map-ont -t 8 -k15 $REF $QUERY | samtools view -Sb - | samtools sort -o ${OUTPUT}/${STEM%*.fastq}.srt.bam -
 samtools index ${OUTPUT}/${STEM%*.fastq}.srt.bam
+
+# depricate this step

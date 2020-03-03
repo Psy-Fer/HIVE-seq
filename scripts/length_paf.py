@@ -78,9 +78,10 @@ def main():
             k = k.split('\t')
             if k[0] in readIDs:
                 A = int(k[8]) - int(k[7])
-                readIDs[k[0]] = readIDs[k[0]] + A
+                readIDs[k[0]][k[4]] = readIDs[k[0]][k[4]] + A
             else:
-                readIDs[k[0]] = int(k[8]) - int(k[7])
+                readIDs[k[0]] = {'+': 0, '-': 0}
+                readIDs[k[0]][k[4]] = int(k[8]) - int(k[7])
 
     c = 0
     P = False
@@ -91,7 +92,7 @@ def main():
             if c == 1:
                 idx = l.split()[0][1:]
                 if idx in readIDs:
-                    if readIDs[idx] >= args.length:
+                    if readIDs[idx]['+'] >= args.length or readIDs[idx]['-'] >= args.length:
                         P = True
                         print(l)
             else:
