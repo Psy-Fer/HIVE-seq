@@ -127,48 +127,49 @@ BAM2=${STEM}_no_stop.srt.bam
 samtools index ${BAM2}
 PAF2=${STEM}_no_stop.paf
 
-samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_2.txt
-
-samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_2.txt
-
-comm -12 ${STEM}_RevReads_2.txt ${STEM}_FwdReads_2.txt > ${STEM}_FwdandRev_2.txt
-
-cat ${STEM}_FwdandRev_2.txt | sort | uniq > ${STEM}_FwdandRev.uniq_2.txt
-
-
-samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_2.txt > ${STEM}_subset_2.sam
-
-samtools view -H ${BAM2} > ${STEM}_Header_2.txt
-
-cat ${STEM}_Header_2.txt ${STEM}_subset_2.sam > ${STEM}_subset.header_2.sam
-
-samtools view -S -b ${STEM}_subset.header_2.sam > ${STEM}_fwdRev_2.bam
-
-samtools index ${STEM}_fwdRev_2.bam
-
-samtools bam2fq ${STEM}_fwdRev_2.bam > ${STEM}_fwdRev_2.fastq
-
-# nanofilt -q 10 barcode05.pass.HXB2.fwdRev.fastq > barcode05.pass.HXB2.fwdRev.Q10.fastq
-python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_2.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_2.fastq
-
-#Count number of reads
-# make sure total map over 8500 using paf
-# use paf dic here, some quality control too. Q10 + map scores?
-# get on the sauce and smash it with some techno
-# nanofilt -l 8500 ${STEM}_fwdRev.q10.fastq > ${STEM}_fwdRev.Q10.8500.fastq
-python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -f ${STEM}_fwdRev.Q10_2.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_2.fastq
-
-#count number of reads
-
-minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.8500_2.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_2.srt.bam -
-
-# samtools sort ${STEM}_fwdRev.Q10.8500.bam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.bam
-
-samtools index ${STEM}_fwdRev.Q10.8500_2.srt.bam
+# samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_2.txt
+#
+# samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_2.txt
+#
+# comm -12 ${STEM}_RevReads_2.txt ${STEM}_FwdReads_2.txt > ${STEM}_FwdandRev_2.txt
+#
+# cat ${STEM}_FwdandRev_2.txt | sort | uniq > ${STEM}_FwdandRev.uniq_2.txt
+#
+#
+# samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_2.txt > ${STEM}_subset_2.sam
+#
+# samtools view -H ${BAM2} > ${STEM}_Header_2.txt
+#
+# cat ${STEM}_Header_2.txt ${STEM}_subset_2.sam > ${STEM}_subset.header_2.sam
+#
+# samtools view -S -b ${STEM}_subset.header_2.sam > ${STEM}_fwdRev_2.bam
+#
+# samtools index ${STEM}_fwdRev_2.bam
+#
+# samtools bam2fq ${STEM}_fwdRev_2.bam > ${STEM}_fwdRev_2.fastq
+#
+# # nanofilt -q 10 barcode05.pass.HXB2.fwdRev.fastq > barcode05.pass.HXB2.fwdRev.Q10.fastq
+# python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_2.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_2.fastq
+#
+# #Count number of reads
+# # make sure total map over 8500 using paf
+# # use paf dic here, some quality control too. Q10 + map scores?
+# # get on the sauce and smash it with some techno
+# # nanofilt -l 8500 ${STEM}_fwdRev.q10.fastq > ${STEM}_fwdRev.Q10.8500.fastq
+# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -f ${STEM}_fwdRev.Q10_2.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_2.fastq
+#
+# #count number of reads
+#
+# minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.8500_2.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_2.srt.bam -
+#
+# # samtools sort ${STEM}_fwdRev.Q10.8500.bam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.bam
+#
+# samtools index ${STEM}_fwdRev.Q10.8500_2.srt.bam
 
 # samtools faidx ${REF}
 
-bcftools mpileup -Ov -f ${REF} ${STEM}_fwdRev.Q10.8500_2.srt.bam > ${STEM}_raw_2.vcf
+# bcftools mpileup -Ov -f ${REF} ${STEM}_fwdRev.Q10.8500_2.srt.bam > ${STEM}_raw_2.vcf
+bcftools mpileup -Ov -f ${REF} ${BAM2} > ${STEM}_raw_2.vcf
 
 bcftools call -v -Ov -m  ${STEM}_raw_2.vcf -o ${STEM}_raw_2.calls.vcf
 
@@ -178,7 +179,8 @@ CALLS_TOT=$(grep ^# -v ${STEM}_variants_2.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
-grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_2.srt.bam ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
+# grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_2.srt.bam ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
+grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${BAM2} ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
 
 
 # bcftools index ${STEM}_raw_2.calls.vcf
