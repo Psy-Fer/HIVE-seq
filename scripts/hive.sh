@@ -119,7 +119,7 @@ grep stop_gained ${STEM}_variants.csq.vcf | python3 ${WORK_DIR}/scripts/filter_s
 echo -e "[SGE - $(date +"%T")]\tROUND TWO - Finding Patient specific reference"
 # ------------------------------------------------------------------------------------
 
-minimap2 -x map-ont -t 8 -k15 ${REF} ${STEM}_no_stop.fastq > ${STEM}_no_stop.paf
+minimap2 -cx map-ont -t 8 -k15 ${REF} ${STEM}_no_stop.fastq > ${STEM}_no_stop.paf
 minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_no_stop.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop.srt.bam -
 
 
@@ -179,9 +179,15 @@ CALLS_TOT=$(grep ^# -v ${STEM}_variants_2.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
+
+# This checks for any stops after stops were filtered (there should be none)
+
 # grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_2.srt.bam ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
 grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${BAM2} ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
+STOP_READ_COUNT=$(grep runid ${STEM}_with_stop_2.fastq -c)
 
+# Should be zero
+echo -e "[SGE - $(date +"%T")]\tNumber of stop reads (should be zero): ${STOP_READ_COUNT}"
 
 # bcftools index ${STEM}_raw_2.calls.vcf
 bgzip -c ${STEM}_raw_2.calls.vcf > ${STEM}_raw_2.calls.vcf.gz
@@ -203,60 +209,64 @@ echo -e "[SGE - $(date +"%T")]\tROUND THREE - Aligning to new reference and find
 # ------------------------------------------------------------------------------------
 
 REF2=${STEM}_consensus.fa
+FASTQ3=${STEM}_fwdRev.Q10.8500.fastq
 
-minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
-minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
+# minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
+# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
 
-BAM3=${STEM}_no_stop_2.srt.bam
+minimap2 -cx map-ont -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
+minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQ3} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.srt.bam -
+
+BAM3=${STEM}_pt_ref_mapped.srt.bam
 samtools index ${BAM3}
-PAF3=${STEM}_no_stop_2.paf
+PAF3=${STEM}_pt_ref_mapped.paf
 
-samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_3.txt
+# samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_3.txt
+#
+# samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_3.txt
+#
+# comm -12 ${STEM}_RevReads_3.txt ${STEM}_FwdReads_3.txt > ${STEM}_FwdandRev_3.txt
+#
+# cat ${STEM}_FwdandRev_3.txt | sort | uniq > ${STEM}_FwdandRev.uniq_3.txt
+#
+#
+# samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_3.txt > ${STEM}_subset_3.sam
+#
+# samtools view -H ${BAM2} > ${STEM}_Header_3.txt
+#
+# cat ${STEM}_Header_3.txt ${STEM}_subset_3.sam > ${STEM}_subset.header_3.sam
+#
+# samtools view -S -b ${STEM}_subset.header_3.sam > ${STEM}_fwdRev_3.bam
+#
+# samtools index ${STEM}_fwdRev_3.bam
+#
+# samtools bam2fq ${STEM}_fwdRev_3.bam > ${STEM}_fwdRev_3.fastq
+#
+#
+# python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_3.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_3.fastq
+#
+#
+# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -f ${STEM}_fwdRev.Q10_3.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_3.fastq
+#
+#
+# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${STEM}_fwdRev.Q10.8500_3.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_3.srt.bam -
+#
+#
+# samtools index ${STEM}_fwdRev.Q10.8500_3.srt.bam
+#
+# samtools faidx ${REF2}
 
-samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_3.txt
-
-comm -12 ${STEM}_RevReads_3.txt ${STEM}_FwdReads_3.txt > ${STEM}_FwdandRev_3.txt
-
-cat ${STEM}_FwdandRev_3.txt | sort | uniq > ${STEM}_FwdandRev.uniq_3.txt
-
-
-samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_3.txt > ${STEM}_subset_3.sam
-
-samtools view -H ${BAM2} > ${STEM}_Header_3.txt
-
-cat ${STEM}_Header_3.txt ${STEM}_subset_3.sam > ${STEM}_subset.header_3.sam
-
-samtools view -S -b ${STEM}_subset.header_3.sam > ${STEM}_fwdRev_3.bam
-
-samtools index ${STEM}_fwdRev_3.bam
-
-samtools bam2fq ${STEM}_fwdRev_3.bam > ${STEM}_fwdRev_3.fastq
-
-
-python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_3.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_3.fastq
-
-
-python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -f ${STEM}_fwdRev.Q10_3.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_3.fastq
-
-
-minimap2 -ax map-ont -k15 -t 8 ${REF2} ${STEM}_fwdRev.Q10.8500_3.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_3.srt.bam -
-
-
-samtools index ${STEM}_fwdRev.Q10.8500_3.srt.bam
-
-samtools faidx ${REF2}
-
-bcftools mpileup -Ov -f ${REF2} ${STEM}_fwdRev.Q10.8500_3.srt.bam > ${STEM}_raw_3.vcf
-
-bcftools call -v -Ov -m  ${STEM}_raw_3.vcf -o ${STEM}_raw_3.calls.vcf
-
-bcftools csq -pa -f ${REF2} -g ${GFF} ${STEM}_raw_3.calls.vcf -Ov -o ${STEM}_variants_3.csq.vcf
-
-CALLS_TOT=$(grep ^# -v ${STEM}_variants_3.csq.vcf -c)
-echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
-
-echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
-grep stop_gained ${STEM}_variants_3.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_3.srt.bam ${FASTQS}/${BASE%.srt*}.fastq  ${STEM}_with_stop_3.fastq > ${STEM}_no_stop_3.fastq
+# bcftools mpileup -Ov -f ${REF2} ${STEM}_fwdRev.Q10.8500_3.srt.bam > ${STEM}_raw_3.vcf
+#
+# bcftools call -v -Ov -m  ${STEM}_raw_3.vcf -o ${STEM}_raw_3.calls.vcf
+#
+# bcftools csq -pa -f ${REF2} -g ${GFF} ${STEM}_raw_3.calls.vcf -Ov -o ${STEM}_variants_3.csq.vcf
+#
+# CALLS_TOT=$(grep ^# -v ${STEM}_variants_3.csq.vcf -c)
+# echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
+#
+# echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
+# grep stop_gained ${STEM}_variants_3.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_3.srt.bam ${FASTQS}/${BASE%.srt*}.fastq  ${STEM}_with_stop_3.fastq > ${STEM}_no_stop_3.fastq
 
 
 echo -e "[SGE - $(date +"%T")]\tDONE"

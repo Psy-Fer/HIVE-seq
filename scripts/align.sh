@@ -24,7 +24,7 @@ STEM=${QUERY##*/}
 
 # build a paf and a sam
 # add in better alignment for paf  - cigar string or whatever
-minimap2 -x map-ont -t 8 -k15 $REF $QUERY > ${OUTPUT}/${STEM%*.fastq}.paf
+minimap2 -cx map-ont -t 8 -k15 $REF $QUERY > ${OUTPUT}/${STEM%*.fastq}.paf
 minimap2 -ax map-ont -t 8 -k15 $REF $QUERY | samtools view -Sb - | samtools sort -o ${OUTPUT}/${STEM%*.fastq}.srt.bam -
 samtools index ${OUTPUT}/${STEM%*.fastq}.srt.bam
 
