@@ -110,7 +110,7 @@ echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 #bedops --element-of 1 <(bam2bed < reads.bam) <(vcf2bed < variants.vcf) > overlapping_reads.bed
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops, might take a while..."
-grep stop_gained ${STEM}_variants.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500.srt.bam ${FASTQS}/${BASE%.srt*}.fastq  ${STEM}_with_stop.fastq > ${STEM}_no_stop.fastq
+grep stop_gained ${STEM}_variants.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500.srt.bam ${STEM}_fwdRev.Q10.8500.fastq  ${STEM}_with_stop.fastq > ${STEM}_no_stop.fastq
 
 
 # ------------------------------------------------------------------------------------
