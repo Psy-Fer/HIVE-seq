@@ -53,8 +53,7 @@ def main():
     with open(args.readIDs, 'r') as f:
         for l in f:
             l = l.strip("\n")
-            l = l.split("\t")
-            filter_set.add(l[0])
+            filter_set.add(l)
 
 
     F = open(args.fastq, 'r')
@@ -69,18 +68,18 @@ def main():
             idx = l.split()[0][1:]
             if idx in filter_set:
                 P = True
-                W.write(l)
-                W.write('\n')
-            else:
                 N.write(l)
                 N.write('\n')
+            else:
+                W.write(l)
+                W.write('\n')
         else:
             if P:
-                W.write(l)
-                W.write('\n')
-            else:
                 N.write(l)
                 N.write('\n')
+            else:
+                W.write(l)
+                W.write('\n')
         if c >= 4:
             c = 0
             P = False

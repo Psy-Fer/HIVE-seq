@@ -1,0 +1,41 @@
+##gff-version 3.2.1								
+##sequence-region 1 1 9089								
+Human	Ensembl	gene	160	1662	.	+	.	ID=gene:gag;Name=gag; biotype=protein_coding
+Human	Ensembl	transcript	160	1662	.	+	.	ID=transcript:gag;Name=gag;Parent=gene:gag;biotype=protein_coding
+Human	Ensembl	CDS	160	1662	.	+	.	Parent=transcript:gag;Name=gag
+Human	Ensembl	gene	1623	1919	.	+	.	ID=gene:prot;Name=prot; biotype=protein_coding
+Human	Ensembl	transcript	1623	1919	.	+	.	ID=transcript:prot;Name=prot;Parent=gene:prot;biotype=protein_coding
+Human	Ensembl	CDS	1623	1919	.	+	.	Parent=transcript:prot;Name=prot
+Human	Ensembl	gene	1920	3239	.	+	.	ID=gene:RT;Name=RT; biotype=protein_coding
+Human	Ensembl	transcript	1920	3239	.	+	.	ID=transcript:RT;Name=RT;Parent=gene:RT;biotype=protein_coding
+Human	Ensembl	CDS	1920	3239	.	+	.	Parent=transcript:RT;Name=RT
+Human	Ensembl	gene	3240	3599	.	+	.	ID=gene:p15;Name=p15; biotype=protein_coding
+Human	Ensembl	transcript	3240	3599	.	+	.	ID=transcript:p15;Name=p15;Parent=gene:p15;biotype=protein_coding
+Human	Ensembl	CDS	3240	3599	.	+	.	Parent=transcript:p15;Name=p15
+Human	Ensembl	gene	3600	4466	.	+	.	ID=gene:Int;Name=Int; biotype=protein_coding
+Human	Ensembl	transcript	3600	4466	.	+	.	ID=transcript:Int;Name=Int;Parent=gene:Int;biotype=protein_coding
+Human	Ensembl	CDS	3600	4466	.	+	.	Parent=transcript:Int;Name=Int
+Human	Ensembl	gene	4411	4989	.	+	.	ID=gene:vif;Name=vif; biotype=protein_coding
+Human	Ensembl	transcript	4411	4989	.	+	.	ID=transcript:vif;Name=vif;Parent=gene:vif;biotype=protein_coding
+Human	Ensembl	CDS	4411	4989	.	+	.	Parent=transcript:vif;Name=vif
+Human	Ensembl	gene	4929	5220	.	+	.	ID=gene:vpr;Name=vpr; biotype=protein_coding
+Human	Ensembl	transcript	4929	5220	.	+	.	ID=transcript:vpr;Name=vpr;Parent=gene:vpr;biotype=protein_coding
+Human	Ensembl	CDS	4929	5220	.	+	.	Parent=transcript:vpr;Name=vpr
+Human	Ensembl	gene	5201	5416	.	+	.	ID=gene:tat;Name=tat; biotype=protein_coding
+Human	Ensembl	transcript	5201	5416	.	+	.	ID=transcript:tat;Name=tat;Parent=gene:tat;biotype=protein_coding
+Human	Ensembl	CDS	5201	5416	.	+	.	Parent=transcript:tat;Name=tat1
+Human	Ensembl	gene	7749	7839	.	+	.	ID=gene:tat2;Name=tat2; biotype=protein_coding
+Human	Ensembl	transcript	7749	7839	.	+	.	ID=transcript:tat2;Name=tat2;Parent=gene:tat2;biotype=protein_coding
+Human	Ensembl	CDS	7749	7839	.	+	.	Parent=transcript:tat2;Name=tat2
+Human	Ensembl	gene	5340	5414	.	+	.	ID=gene:rev;Name=rev; biotype=protein_coding
+Human	Ensembl	transcript	5340	5414	.	+	.	ID=transcript:rev;Name=HIV;Parent=gene:rev;biotype=protein_coding
+Human	Ensembl	CDS	5340	5414	.	+	.	Parent=transcript:rev;Name=rev1
+Human	Ensembl	gene	7749	8023	.	+	.	ID=gene:rev2;Name=rev2; biotype=protein_coding
+Human	Ensembl	transcript	7749	8023	.	+	.	ID=transcript:rev2;Name=HIV;Parent=gene:rev2;biotype=protein_coding
+Human	Ensembl	CDS	7749	8023	.	+	.	Parent=transcript:rev2;Name=rev2
+Human	Ensembl	gene	5432	5680	.	+	.	ID=gene:vpu;Name=vpu; biotype=protein_coding
+Human	Ensembl	transcript	5432	5680	.	+	.	ID=transcript:vpu;Name=HIV;Parent=gene:vpu;biotype=protein_coding
+Human	Ensembl	CDS	5432	5680	.	+	.	Parent=transcript:vpu;Name=vpu
+Human	Ensembl	gene	5595	8165	.	+	.	ID=gene:env;Name=env; biotype=protein_coding
+Human	Ensembl	transcript	5595	8165	.	+	.	ID=transcript:env;Name=HIV;Parent=gene:env;biotype=protein_coding
+Human	Ensembl	CDS	5595	8165	.	+	.	Parent=transcript:env;Name=env
