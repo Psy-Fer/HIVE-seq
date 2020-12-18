@@ -19,29 +19,29 @@ if [ -z ${SAMPLE_NAME} ]; then echo "SAMPLE_NAME required, not present"; exit 1;
 
 
 echo -e "[SGE - $(date +"%T")]\t1. Launching basecalling"
-# NUM_JOBS=$(find ${RAW_DATA} -type f -name "*.fast5" | wc -l)
-# echo -e "[SGE - $(date +"%T")]\tNumber of jobs to launch: $NUM_JOBS"
-# qsub -terse -sync y ${SCRIPTS}/bcaller.sge ${RAW_DATA} ${GUP_MODEL}
-# echo -e "[SGE - $(date +"%T")]\tSkipping basecalling for testing"
+NUM_JOBS=$(find ${RAW_DATA} -type f -name "*.fast5" | wc -l)
+echo -e "[SGE - $(date +"%T")]\tNumber of jobs to launch: $NUM_JOBS"
+qsub -terse -sync y ${SCRIPTS}/bcaller.sge ${RAW_DATA} ${GUP_MODEL}
+echo -e "[SGE - $(date +"%T")]\tSkipping basecalling for testing"
 
-# tail -1 ${GUPPY_OUT}/time.txt
+tail -1 ${GUPPY_OUT}/time.txt
 
 echo -e "[SGE - $(date +"%T")]\t2. Merging basecalled data"
 # merging fastq files
-# if [ ! -d ${WORK_DIR}/fastqs ]; then mkdir -p ${WORK_DIR}/fastqs; fi
+if [ ! -d ${WORK_DIR}/fastqs ]; then mkdir -p ${WORK_DIR}/fastqs; fi
 FASTQS=${WORK_DIR}/fastqs
-# for bc in ${GUPPY_OUT}/barcode*; do $(for fq in ${bc}/*.fastq; do cat ${fq}; done >> ${FASTQS}/${bc##*/}.fastq); done
-# echo -e "[SGE - $(date +"%T")]\tSkipping merging for testing"
+for bc in ${GUPPY_OUT}/barcode*; do $(for fq in ${bc}/*.fastq; do cat ${fq}; done >> ${FASTQS}/${bc##*/}.fastq); done
+echo -e "[SGE - $(date +"%T")]\tSkipping merging for testing"
 # merge seq_sum files
-# head -1 ${GUPPY_OUT}/sequencing_summary.txt > ${WORK_DIR}/sequencing_summary.txt
-# for file in ${GUPPY_OUT}/*/sequencing_summary.txt; do tail -n +2 $file; done >> ${WORK_DIR}/sequencing_summary.txt
+head -1 ${GUPPY_OUT}/sequencing_summary.txt > ${WORK_DIR}/sequencing_summary.txt
+for file in ${GUPPY_OUT}/*/sequencing_summary.txt; do tail -n +2 $file; done >> ${WORK_DIR}/sequencing_summary.txt
 
 echo -e "[SGE - $(date +"%T")]\tAligning data"
-# NUM_JOBS=$(find ${FASTQS} -type f -name "*.fastq" | wc -l)
+NUM_JOBS=$(find ${FASTQS} -type f -name "*.fastq" | wc -l)
 echo -e "[SGE - $(date +"%T")]\tNumber of jobs to launch: $NUM_JOBS"
-# if [ ! -d ${BAMS} ]; then mkdir -p ${BAMS}; fi
+if [ ! -d ${BAMS} ]; then mkdir -p ${BAMS}; fi
 # array job for each barcode, do alignment
-# qsub -terse -sync y -t 1-${NUM_JOBS} ${SCRIPTS}/align.sh ${REF} ${FASTQS} ${BAMS}
+qsub -terse -sync y -t 1-${NUM_JOBS} ${SCRIPTS}/align.sh ${REF} ${FASTQS} ${BAMS}
 
 # echo -e "[SGE - $(date +"%T")]\tSkipping aligning for testing"
 

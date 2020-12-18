@@ -216,19 +216,31 @@ STOP_READ_COUNT=$(grep ^@ ${STEM}_with_stop_2.fastq -c)
 
 # Should be zero
 echo -e "[SGE - $(date +"%T")]\tNumber of stop reads (should be zero): ${STOP_READ_COUNT}"
+#
+# # bcftools index ${STEM}_raw_2.calls.vcf
+# bgzip -c ${STEM}_raw_2.calls.vcf > ${STEM}_raw_2.calls.vcf.gz
+#
+# # normalize indels
+# bcftools norm -f ${REF} ${STEM}_raw_2.calls.vcf.gz -Ob -o ${STEM}_raw_2.calls.norm.bcf
+#
+# # filter adjacent indels within 5bp
+# bcftools filter --IndelGap 5 ${STEM}_raw_2.calls.norm.bcf -Ob -o ${STEM}_raw_2.calls.norm.flt-indels.bcf
+#
+# bcftools index ${STEM}_raw_2.calls.norm.flt-indels.bcf
+#
+# cat ${REF} | bcftools consensus ${STEM}_raw_2.calls.norm.flt-indels.bcf > ${STEM}_consensus.fa
 
-# bcftools index ${STEM}_raw_2.calls.vcf
-bgzip -c ${STEM}_raw_2.calls.vcf > ${STEM}_raw_2.calls.vcf.gz
+# experimental:
 
-# normalize indels
-bcftools norm -f ${REF} ${STEM}_raw_2.calls.vcf.gz -Ob -o ${STEM}_raw_2.calls.norm.bcf
+pysamstats -d -f ${REF} --type variation_strand ${STEM}_fwdRev.Q10.8500.srt.bam > ${STEM}_step_cons.txt
 
-# filter adjacent indels within 5bp
-bcftools filter --IndelGap 5 ${STEM}_raw_2.calls.norm.bcf -Ob -o ${STEM}_raw_2.calls.norm.flt-indels.bcf
+# For each row if column 4 value is less than 10 = TRUE enter the value in column 3
+# If column 34>column 40 > column 46 > column 52 = TRUE enter A
+# If column 40 > column 34 & 46 & 52 = TRUE enter C
+# If column 46 > column 34 & 40 & 52 = TRUE enter T
+# If column 52 > column 34 & 40 & 46 = TRUE enter G
 
-bcftools index ${STEM}_raw_2.calls.norm.flt-indels.bcf
-
-cat ${REF} | bcftools consensus ${STEM}_raw_2.calls.norm.flt-indels.bcf > ${STEM}_consensus.fa
+python ${WORK_DIR}/scripts/build_consensus.py -i ${STEM}_step_cons.txt -o ${STEM}_consensus.fa
 
 # ------------------------------------------------------------------------------------
 
@@ -306,6 +318,21 @@ python3 ${WORK_DIR}/scripts/filter_stops.py -f ${FASTQ3} -t ${STEM}_reads_to_fil
 POS=''
 BASE=''
 # ${WORK_DIR}/scripts/filter_stops.sh ${WORK_DIR} 3 ${STEM} ${REF2} ${BAM3} ${STEM}_variants_3.csq.vcf ${FASTQ3}
+
+# map fastq files and index bam files
+
+
+FASTQ4=${STEM}_no_stop_3.fastq
+
+# minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
+# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
+
+minimap2 -cx map-ont -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
+minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQ4} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.srt.bam -
+
+BAM4=${STEM}_pt_ref_no_stop_mapped.srt.bam
+samtools index ${BAM4}
+
 
 echo -e "[SGE - $(date +"%T")]\tDONE"
 
