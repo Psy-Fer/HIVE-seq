@@ -232,7 +232,7 @@ echo -e "[SGE - $(date +"%T")]\tNumber of stop reads (should be zero): ${STOP_RE
 
 # experimental:
 
-pysamstats -d -f ${REF} --type variation_strand ${STEM}_fwdRev.Q10.8500.srt.bam > ${STEM}_step_cons.txt
+pysamstats -d -f ${REF} --type variation_strand ${BAM2} > ${STEM}_step_cons.txt
 
 # For each row if column 4 value is less than 10 = TRUE enter the value in column 3
 # If column 34>column 40 > column 46 > column 52 = TRUE enter A
