@@ -10,14 +10,14 @@
 # #$ -e /dev/null
 # #$ -o /dev/null
 
-module load marsmi/nanopore/minimap2/2.17-r943-dirty
-module load evaben7/gcc/8.2.0
-module load evaben7/samtools/1.9/gcc-8.2.0
-module load evaben7/bcftools/1.9/gcc-8.2.0
-module load evaben7/htslib/1.9/gcc-8.2.0
-module load shacar/java/jdk-11.0.2
-module load jamfer/jvarkit/2b40bcc
-module load briglo/picard/2.9.4
+module load centos6.10/marsmi/nanopore/minimap2/2.17-r943-dirty
+module load centos6.10/evaben7/gcc/8.2.0
+module load centos6.10/evaben7/samtools/1.9/gcc-8.2.0
+module load centos6.10/evaben7/bcftools/1.9/gcc-8.2.0
+module load centos6.10/evaben7/htslib/1.9/gcc-8.2.0
+module load centos6.10/shacar/java/jdk-11.0.2
+module load centos6.10/jamfer/jvarkit/2b40bcc
+module load centos6.10/briglo/picard/2.9.4
 
 
 # samtools view -h barcode09_fwdRev.Q10.8500.srt.bam | sam2tsv.jar -r ../../ref/HXB2_trimmed.fasta | awk '($8==5435) && ($6=="T")' > reads_with_T_5435.tsv
