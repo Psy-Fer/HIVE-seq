@@ -88,19 +88,27 @@ python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev.fastq -s ${WORK_DIR}/gup
 # use paf dic here, some quality control too. Q10 + map scores?
 # get on the sauce and smash it with some techno
 # nanofilt -l 8500 ${STEM}_fwdRev.q10.fastq > ${STEM}_fwdRev.Q10.8500.fastq
-python ${WORK_DIR}/scripts/length_paf.py -p ${PAF} -f ${STEM}_fwdRev.Q10.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500.fastq
+python ${WORK_DIR}/scripts/length_paf.py -p ${PAF} -f ${STEM}_fwdRev.Q10.fastq -l 8500 -o ${STEM}_fwdRev.Q10.8500_longest_hits.tsv >  ${STEM}_fwdRev.Q10.8500.fastq
+
+#TODO: also output a flat file of readID, start site, CIGAR for filtering
 
 #count number of reads
 
-minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.8500.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500.srt.bam -
+minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.8500.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500.srt.bam -
 
-# samtools sort ${STEM}_fwdRev.Q10.8500.bam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.bam
+# TODO: using paf file output, filter bam using start site and CIGAR string
 
-samtools index ${STEM}_fwdRev.Q10.8500.srt.bam
+samtools view -h ${STEM}_fwdRev.Q10.8500.srt.bam > ${STEM}_fwdRev.Q10.8500.srt.pre-filter.sam
+
+python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_fwdRev.Q10.8500.srt.pre-filter.sam -l ${STEM}_fwdRev.Q10.8500_longest_hits.tsv > ${STEM}_fwdRev.Q10.8500.srt.filtered.sam
+
+samtools sort ${STEM}_fwdRev.Q10.8500.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.filtered.bam
+
+samtools index ${STEM}_fwdRev.Q10.8500.srt.filtered.bam
 
 samtools faidx ${REF}
 
-bcftools mpileup -Ov -f ${REF} ${STEM}_fwdRev.Q10.8500.srt.bam > ${STEM}_raw.vcf
+bcftools mpileup -Ov -f ${REF} ${STEM}_fwdRev.Q10.8500.srt.filtered.bam > ${STEM}_raw.vcf
 
 bcftools call -v -Ov -m  ${STEM}_raw.vcf -o ${STEM}_raw.calls.vcf
 
@@ -122,7 +130,7 @@ echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 echo -e "[SGE - $(date +"%T")]\tFiltering stops, might take a while..."
 grep stop_gained ${STEM}_variants.csq.vcf
 
-for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do BASE=$(grep ${POS} ${STEM}_variants.csq.vcf | awk '{print $5}'); samtools view -h ${STEM}_fwdRev.Q10.8500.srt.bam | sam2tsv.jar -r ${REF} | awk -v a=${POS} -v b=${BASE} '($8==a) && ($6==b)'; done > ${STEM}_reads_to_filter_1.tsv
+for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do BASE=$(grep ${POS} ${STEM}_variants.csq.vcf | awk '{print $5}'); samtools view -h ${STEM}_fwdRev.Q10.8500.srt.filtered.bam | sam2tsv.jar -r ${REF} | awk -v a=${POS} -v b=${BASE} '($8==a) && ($6==b)'; done > ${STEM}_reads_to_filter_1.tsv
 python3 ${WORK_DIR}/scripts/filter_stops.py -f ${STEM}_fwdRev.Q10.8500.fastq -t ${STEM}_reads_to_filter_1.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq
 
 POS=''
@@ -138,13 +146,22 @@ BASE=''
 echo -e "[SGE - $(date +"%T")]\tROUND TWO - Finding Patient specific reference"
 # ------------------------------------------------------------------------------------
 
-minimap2 -cx map-ont -t 8 -k15 ${REF} ${STEM}_no_stop_1.fastq > ${STEM}_no_stop_1.paf
-minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_no_stop_1.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_1.srt.bam -
+minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF} ${STEM}_no_stop_1.fastq > ${STEM}_no_stop_1.paf
 
-
-BAM2=${STEM}_no_stop_1.srt.bam
-samtools index ${BAM2}
 PAF2=${STEM}_no_stop_1.paf
+
+python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -f ${STEM}_no_stop_1.fastq -l 8500 -o ${STEM}_no_stop_1_longest_hits.tsv >  ${STEM}_no_stop_1_length_filtered.fastq
+minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_no_stop_1_length_filtered.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_1.srt.pre-filter.bam -
+samtools view -h ${STEM}_no_stop_1.srt.pre-filter.bam > ${STEM}_no_stop_1.srt.pre-filter.sam
+python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_no_stop_1.srt.pre-filter.sam -l ${STEM}_no_stop_1_longest_hits.tsv > ${STEM}_no_stop_1.srt.filtered.sam
+samtools sort ${STEM}_no_stop_1.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_no_stop_1.srt.filtered.bam
+samtools index ${STEM}_no_stop_1.srt.filtered.bam
+
+
+BAM2=${STEM}_no_stop_1.srt.filtered.bam
+
+
+
 
 # samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_2.txt
 #
@@ -254,12 +271,27 @@ FASTQ3=${STEM}_fwdRev.Q10.8500.fastq
 # minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
 # minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
 
-minimap2 -cx map-ont -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
-minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQ3} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.srt.bam -
+minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
 
-BAM3=${STEM}_pt_ref_mapped.srt.bam
-samtools index ${BAM3}
 PAF3=${STEM}_pt_ref_mapped.paf
+
+python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -f ${FASTQ3} -l 8500 -o ${STEM}_pt_ref_longest_hits.tsv > ${STEM}_pt_ref_length_filtered.fastq
+minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${STEM}_pt_ref_length_filtered.fastq | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.srt.pre-filter.bam -
+samtools view -h ${STEM}_pt_ref_mapped.srt.pre-filter.bam > ${STEM}_pt_ref_mapped.srt.pre-filter.sam
+python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_pt_ref_mapped.srt.pre-filter.sam -l ${STEM}_pt_ref_longest_hits.tsv > ${STEM}_pt_ref_mapped.srt.filtered.sam
+samtools sort ${STEM}_pt_ref_mapped.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_pt_ref_mapped.srt.filtered.bam
+samtools index ${STEM}_pt_ref_mapped.srt.filtered.bam
+
+BAM3=${STEM}_pt_ref_mapped.srt.filtered.bam
+
+
+#
+# minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
+# minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ3} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.srt.bam -
+#
+# BAM3=${STEM}_pt_ref_mapped.srt.bam
+# samtools index ${BAM3}
+# PAF3=${STEM}_pt_ref_mapped.paf
 
 # samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_3.txt
 #
@@ -327,11 +359,27 @@ FASTQ4=${STEM}_no_stop_3.fastq
 # minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
 # minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
 
-minimap2 -cx map-ont -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
-minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQ4} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.srt.bam -
+minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
 
-BAM4=${STEM}_pt_ref_no_stop_mapped.srt.bam
-samtools index ${BAM4}
+PAF4=${STEM}_pt_ref_mapped.paf
+
+python ${WORK_DIR}/scripts/length_paf.py -p ${PAF4} -f ${FASTQ4} -l 8500 -o ${STEM}_pt_ref_no_stop_longest_hits.tsv > ${STEM}_pt_ref_no_stop_length_filtered.fastq
+minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${STEM}_pt_ref_no_stop_length_filtered.fastq | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.bam -
+samtools view -h ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.bam > ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.sam
+python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.sam -l ${STEM}_pt_ref_no_stop_longest_hits.tsv > ${STEM}_pt_ref_no_stop_mapped.srt.filtered.sam
+samtools sort ${STEM}_pt_ref_no_stop_mapped.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
+samtools index ${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
+
+BAM4=${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
+
+
+
+
+# minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
+# minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ4} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.srt.bam -
+#
+# BAM4=${STEM}_pt_ref_no_stop_mapped.srt.bam
+# samtools index ${BAM4}
 
 
 echo -e "[SGE - $(date +"%T")]\tDONE"

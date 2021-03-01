@@ -33,7 +33,7 @@ echo "Config: $CONFIG "
 
 # load guppy
 # module load jamfer/ont-guppy/3.4.4
-module load shacar/ont-guppy/4.2.2
+module load centos6.10/shacar/ont-guppy/4.2.2
 
 # do basecalling
 time guppy_basecaller --trim_barcodes --num_extra_bases_trim 30 --barcode_kits "EXP-NBD104 EXP-NBD114" --require_barcodes_both_ends --chunks_per_runner 1500 --gpu_runners_per_device 1 --cpu_threads_per_caller 4 -x "cuda:0 cuda:1 cuda:2 cuda:3" -r -i ${RAW_INPUT} -c ${CONFIG} -s ./${OUT_DIR}/ >${OUT_DIR}/time.txt 2>&1

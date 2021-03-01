@@ -57,14 +57,10 @@ def main():
     parser = MyParser(
         description="script name - script description")
     #group = parser.add_mutually_exclusive_group()
-    parser.add_argument("-p", "--paf",
-                        help="read paf file")
-    parser.add_argument("-f", "--fastq",
-                        help="fastq file for readIDs/filtering")
-    parser.add_argument("-l", "--length", type=int, default=8500,
-                        help="length min limit")
-    parser.add_argument("-o", "--out",
-                        help="longest alignment out file")
+    parser.add_argument("-s", "--sam",
+                        help="read sam file")
+    parser.add_argument("-l", "--long",
+                        help="longest alignment file")
 
     args = parser.parse_args()
 
@@ -74,53 +70,36 @@ def main():
         sys.exit(1)
 
     readIDs = {}
-    with open(args.paf, 'r') as f:
+    head = True
+    with open(args.long, 'r') as f:
         for k in f:
+            if head:
+                head = False
+                continue
             k = k.strip('\n')
             k = k.split('\t')
-            l = int(k[8]) - int(k[7])
-            if l < 8500:
+            readID = k[0]
+            length = int(k[1])
+            start = int(k[2])
+            cigar = k[3]
+            readIDs[readID] = [length, start, cigar]
+
+    header = []
+    with open(args.sam, 'r') as f:
+        for k in f:
+            j = k.strip('\n')
+            if j[0] == "@":
+                print(j)
                 continue
-            if k[0] in readIDs:
-                if readIDs[k[0]]['length'] < l:
-                    readIDs[k[0]]['length'] = l
-                    readIDs[k[0]]['start'] = int(k[7])
-                    readIDs[k[0]]['cigar'] = k[22].split(':')[2]
-            else:
-                readIDs[k[0]] = {'length': 0, 'start':0, 'cigar': ''}
-                if readIDs[k[0]]['length'] < l:
-                    readIDs[k[0]]['length'] = l
-                    readIDs[k[0]]['start'] = int(k[7])
-                    readIDs[k[0]]['cigar'] = k[22].split(':')[2]
-
-    with open(args.out, 'w') as f:
-        f.write("readID\tlength\tstart\tcigar\n")
-        for read in readIDs.keys():
-            f.write("{}\t{}\t{}\t{}\n".format(read,
-                                              readIDs[read]["length"],
-                                              readIDs[read]["start"],
-                                              readIDs[read]["cigar"]))
-
-    c = 0
-    P = False
-    with open(args.fastq, 'r') as f:
-        for ln in f:
-            c += 1
-            l = ln.strip('\n')
-            if c == 1:
-                idx = l.split()[0][1:]
-                if idx in readIDs:
-                    if readIDs[idx]['length'] >= args.length:
-                        P = True
-                        print(l)
-            else:
-                if P:
-                    print(l)
-            if c >= 4:
-                c = 0
-                P = False
-
-
+            l = j.split('\t')
+            R = l[0]
+            S = int(l[3])
+            C = l[5]
+            diff = S - readIDs[R][1]
+            if l[0] in readIDs:
+                if diff < 2 and diff > -2:
+                    if readIDs[R][2] in C:
+                        print(j)
 
 
 if __name__ == '__main__':
