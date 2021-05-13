@@ -59,8 +59,8 @@ def main():
     #group = parser.add_mutually_exclusive_group()
     parser.add_argument("-p", "--paf",
                         help="read paf file")
-    parser.add_argument("-f", "--fastq",
-                        help="fastq file for readIDs/filtering")
+    # parser.add_argument("-f", "--fastq",
+    #                     help="fastq file for readIDs/filtering")
     parser.add_argument("-l", "--length", type=int, default=8500,
                         help="length min limit")
     parser.add_argument("-o", "--out",
@@ -79,7 +79,7 @@ def main():
             k = k.strip('\n')
             k = k.split('\t')
             l = int(k[8]) - int(k[7])
-            if l < 8500:
+            if l < args.length:
                 continue
             if k[0] in readIDs:
                 if readIDs[k[0]]['length'] < l:
@@ -101,25 +101,25 @@ def main():
                                               readIDs[read]["start"],
                                               readIDs[read]["cigar"]))
 
-    c = 0
-    P = False
-    with open(args.fastq, 'r') as f:
-        for ln in f:
-            c += 1
-            l = ln.strip('\n')
-            if c == 1:
-                idx = l.split()[0][1:]
-                if idx in readIDs:
-                    if readIDs[idx]['length'] >= args.length:
-                        P = True
-                        print(l)
-            else:
-                if P:
-                    print(l)
-            if c >= 4:
-                c = 0
-                P = False
-
+    # c = 0
+    # P = False
+    # with open(args.fastq, 'r') as f:
+    #     for ln in f:
+    #         c += 1
+    #         l = ln.strip('\n')
+    #         if c == 1:
+    #             idx = l.split()[0][1:]
+    #             if idx in readIDs:
+    #                 if readIDs[idx]['length'] >= args.length:
+    #                     P = True
+    #                     print(l)
+    #         else:
+    #             if P:
+    #                 print(l)
+    #         if c >= 4:
+    #             c = 0
+    #             P = False
+    #
 
 
 

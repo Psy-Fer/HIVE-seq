@@ -59,8 +59,8 @@ def main():
     #group = parser.add_mutually_exclusive_group()
     parser.add_argument("-s", "--sam",
                         help="read sam file")
-    parser.add_argument("-l", "--long",
-                        help="longest alignment file")
+    parser.add_argument("-l", "--del_length", type=int,
+                        help="longest deletion allowed in cigar")
 
     args = parser.parse_args()
 
@@ -68,21 +68,6 @@ def main():
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
-
-    readIDs = {}
-    head = True
-    with open(args.long, 'r') as f:
-        for k in f:
-            if head:
-                head = False
-                continue
-            k = k.strip('\n')
-            k = k.split('\t')
-            readID = k[0]
-            length = int(k[1])
-            start = int(k[2])
-            cigar = k[3]
-            readIDs[readID] = [length, start, cigar]
 
     header = []
     with open(args.sam, 'r') as f:
@@ -93,13 +78,22 @@ def main():
                 continue
             l = j.split('\t')
             R = l[0]
-            S = int(l[3])
             C = l[5]
-            diff = S - readIDs[R][1]
-            if l[0] in readIDs:
-                if diff < 2 and diff > -2:
-                    if readIDs[R][2] in C:
-                        print(j)
+            max_del = args.del_length
+            block = []
+            too_big = False
+            for i in C:
+                if i.isdigit():
+                    block.append(i)
+                elif i == "D":
+                    n = int(''.join(block))
+                    if n >= max_del:
+                        too_big = True
+                else:
+                    block = []
+            if not too_big:
+                print(j)
+
 
 
 if __name__ == '__main__':
