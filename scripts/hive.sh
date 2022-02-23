@@ -7,8 +7,11 @@
 #$ -l h_vmem=16G
 #$ -l tmp_requested=5G
 #$ -pe smp 8
+#$ -l nvgpu=1
+#$ -l h='epsilon*'
 # #$ -e /dev/null
 # #$ -o /dev/null
+
 
 module load centos6.10/marsmi/nanopore/minimap2/2.17-r943-dirty
 module load centos6.10/evaben7/gcc/8.2.0
@@ -79,14 +82,9 @@ samtools index ${STEM}_fwdRev.bam
 # turn into fastq
 samtools bam2fq ${STEM}_fwdRev.bam > ${STEM}_fwdRev.fastq
 # filter for Q10 reads
-# nanofilt -q 10 barcode05.pass.HXB2.fwdRev.fastq > barcode05.pass.HXB2.fwdRev.Q10.fastq
 python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10.fastq
 
 #Count number of reads
-# make sure total map over 8500 using paf
-# use paf dic here, some quality control too. Q10 + map scores?
-# get on the sauce and smash it with some techno
-# nanofilt -l 8500 ${STEM}_fwdRev.q10.fastq > ${STEM}_fwdRev.Q10.8500.fastq
 
 #TODO: also output a flat file of readID, start site, CIGAR for filtering
 
@@ -94,9 +92,6 @@ python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev.fastq -s ${WORK_DIR}/gup
 minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF} ${STEM}_fwdRev.Q10.fastq > ${STEM}_fwdRev.Q10.paf
 minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.srt.bam -
 
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF} -f ${STEM}_fwdRev.Q10.fastq -l 8500 -o ${STEM}_fwdRev.Q10.8500_longest_hits.tsv >  ${STEM}_fwdRev.Q10.8500.fastq
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF} -l 8500 -o ${STEM}_fwdRev.Q10.8500_longest_hits.tsv
-# get list of all reads with length greater than 8500
 awk '{ if ($11>=8500) print $1}' ${STEM}_fwdRev.Q10.paf > ${STEM}_Q10.8500list.txt
 
 # filter reads with above readlist
@@ -124,35 +119,17 @@ bcftools csq -l -pa -f ${REF} -g ${GFF} ${STEM}_raw.calls.vcf -Ov -o ${STEM}_var
 CALLS_TOT=$(grep ^# -v ${STEM}_variants.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
-#for f in ./*/*variants.csq.vcf; do echo $f; grep stop_gained $f | cut -f 2,4,5; done
-
-# grep stop_gained ${STEM}_variants.csq.vcf > ${STEM}_stops_gained.tsv
-#
-# SGCOUNT=$(wc -l ${STEM}_stops_gained.tsv)
-# echo -e "[SGE - $(date +"%T")]\tstops_gained count: ${SGCOUNT}"
-
-#bedops --element-of 1 <(bam2bed < reads.bam) variants.bed > overlapping_reads.bed
-#bedops --element-of 1 <(bam2bed < reads.bam) <(vcf2bed < variants.vcf) > overlapping_reads.bed
-
 echo -e "[SGE - $(date +"%T")]\tFiltering stops, might take a while..."
 # dump stop codons detected
 grep stop_gained ${STEM}_variants.csq.vcf
 # for each stop, find reads that have that variant at that position and put into a list of ${STEM}_reads_to_filter_1.tsv
-# for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do BASE=$(cat ${STEM}_variants.csq.vcf | awk -v a=${POS} '($2==a) {print $5}'); samtools view -h ${STEM}_fwdRev.Q10.8500.srt.filtered.bam | sam2tsv.jar -r ${REF} | awk -v a=${POS} -v b=${BASE} '($8==a) && ($6==b)'; done > ${STEM}_reads_to_filter_1.tsv
 for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_1.tsv
-# for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do BASE=$(cat ${STEM}_variants.csq.vcf | awk -v a=${POS} '($2==a) {print $5}'); samtools view -h ${STEM}_fwdRev.Q10.8500.srt.filtered.bam | sam2tsv.jar -r ${REF} | grep --no-group-separator -C2 ${POS}; done > ${STEM}_reads_to_filter_1_bases.tsv
 # go through fastq and filter into with stop/no stop outputs (DO STOP CODON CHECK HERE!!!)
-# python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_fwdRev.Q10.8500.fastq -t ${STEM}_reads_to_filter_1.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq
 python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_fwdRev.Q10.8500.fastq -b ${STEM}_fwdRev.Q10.8500.srt.filtered.bam -t ${STEM}_positions_to_check_1.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq > ${STEM}_filter_stops2_stdout_1.log
-# python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_fwdRev.Q10.8500.fastq -t ${STEM}_reads_to_filter_1.tsv -r ${STEM}_reads_to_filter_1_bases.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq
+
 
 POS=''
 BASE=''
-
-# grep stop_gained ${STEM}_variants.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500.srt.bam ${STEM}_fwdRev.Q10.8500.fastq  ${STEM}_with_stop.fastq > ${STEM}_no_stop.fastq
-# ${WORK_DIR}/scripts/filter_stops.sh ${WORK_DIR} 1 ${STEM} ${REF} ${STEM}_fwdRev.Q10.8500.srt.bam ${STEM}_variants.csq.vcf ${STEM}_fwdRev.Q10.8500.fastq
-# ${WORK_DIR}/scripts/filter_stops.sh ${WORK_DIR} 1 ${STEM} ${REF} ${STEM}_fwdRev.Q10.8500.srt.bam ${STEM}_variants.csq.vcf ${STEM}_fwdRev.Q10.8500.fastq
-
 # ------------------------------------------------------------------------------------
 
 # Start again to get patient reference
@@ -163,8 +140,6 @@ minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF} ${STEM}_no_stop_1.fastq > $
 
 PAF2=${STEM}_no_stop_1.paf
 
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -f ${STEM}_no_stop_1.fastq -l 8500 -o ${STEM}_no_stop_1_longest_hits.tsv >  ${STEM}_no_stop_1_length_filtered.fastq
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -l 8500 -o ${STEM}_no_stop_1_longest_hits.tsv
 minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_no_stop_1.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_1.bam -
 
 awk '{ if ($11>=8500) print $1}' ${PAF2} > ${STEM}_no_stop_1.8500list.txt
@@ -182,51 +157,6 @@ samtools bam2fq ${STEM}_no_stop_1.srt.filtered.bam > ${STEM}_no_stop_1.filtered.
 
 BAM2=${STEM}_no_stop_1.srt.filtered.bam
 
-
-
-
-# samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_2.txt
-#
-# samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_2.txt
-#
-# comm -12 ${STEM}_RevReads_2.txt ${STEM}_FwdReads_2.txt > ${STEM}_FwdandRev_2.txt
-#
-# cat ${STEM}_FwdandRev_2.txt | sort | uniq > ${STEM}_FwdandRev.uniq_2.txt
-#
-#
-# samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_2.txt > ${STEM}_subset_2.sam
-#
-# samtools view -H ${BAM2} > ${STEM}_Header_2.txt
-#
-# cat ${STEM}_Header_2.txt ${STEM}_subset_2.sam > ${STEM}_subset.header_2.sam
-#
-# samtools view -S -b ${STEM}_subset.header_2.sam > ${STEM}_fwdRev_2.bam
-#
-# samtools index ${STEM}_fwdRev_2.bam
-#
-# samtools bam2fq ${STEM}_fwdRev_2.bam > ${STEM}_fwdRev_2.fastq
-#
-# # nanofilt -q 10 barcode05.pass.HXB2.fwdRev.fastq > barcode05.pass.HXB2.fwdRev.Q10.fastq
-# python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_2.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_2.fastq
-#
-# #Count number of reads
-# # make sure total map over 8500 using paf
-# # use paf dic here, some quality control too. Q10 + map scores?
-# # get on the sauce and smash it with some techno
-# # nanofilt -l 8500 ${STEM}_fwdRev.q10.fastq > ${STEM}_fwdRev.Q10.8500.fastq
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF2} -f ${STEM}_fwdRev.Q10_2.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_2.fastq
-#
-# #count number of reads
-#
-# minimap2 -ax map-ont -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.8500_2.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_2.srt.bam -
-#
-# # samtools sort ${STEM}_fwdRev.Q10.8500.bam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.bam
-#
-# samtools index ${STEM}_fwdRev.Q10.8500_2.srt.bam
-
-# samtools faidx ${REF}
-
-# bcftools mpileup -Ov -f ${REF} ${STEM}_fwdRev.Q10.8500_2.srt.bam > ${STEM}_raw_2.vcf
 bcftools mpileup -Ov -f ${REF} ${BAM2} > ${STEM}_raw_2.vcf
 
 bcftools call -v -Ov -m  ${STEM}_raw_2.vcf -o ${STEM}_raw_2.calls.vcf
@@ -239,47 +169,26 @@ echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
 
 # This checks for any stops after stops were filtered (there should be none)
-
-# grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${STEM}_fwdRev.Q10.8500_2.srt.bam ${STEM}_no_stop.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
-# grep stop_gained ${STEM}_variants_2.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${BAM2} ${STEM}_no_stop_1.fastq  ${STEM}_with_stop_2.fastq > ${STEM}_no_stop_2.fastq
 grep stop_gained ${STEM}_variants_2.csq.vcf
 
-# for POS in $(grep stop_gained ${STEM}_variants_2.csq.vcf | awk '{print $2}'); do BASE=$(cat ${STEM}_variants_2.csq.vcf | awk -v a=${POS} '($2==a) {print $5}'); samtools view -h ${BAM2} | sam2tsv.jar -r ${REF} | awk -v a=${POS} -v b=${BASE} '($8==a) && ($6==b)'; done > ${STEM}_reads_to_filter_2.tsv
 for POS in $(grep stop_gained ${STEM}_variants_2.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_2.tsv
-# python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_no_stop_1.fastq -t ${STEM}_positions_to_check_2.tsv -w ${STEM}_with_stop_2.fastq -n ${STEM}_no_stop_2.fastq
+
 python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_no_stop_1.filtered.fastq -b ${BAM2} -t ${STEM}_positions_to_check_2.tsv -w ${STEM}_with_stop_2.fastq -n ${STEM}_no_stop_2.fastq > ${STEM}_filter_stops2_stdout_2.log
 
 POS=''
 BASE=''
-# ${WORK_DIR}/scripts/filter_stops.sh ${WORK_DIR} 2 ${STEM} ${REF} ${BAM2} ${STEM}_variants_2.csq.vcf ${STEM}_no_stop_1.fastq
 
 STOP_READ_COUNT=$(grep ^@ ${STEM}_with_stop_2.fastq -c)
 
 # Should be zero
 echo -e "[SGE - $(date +"%T")]\tNumber of stop reads (should be zero): ${STOP_READ_COUNT}"
 #
-# # bcftools index ${STEM}_raw_2.calls.vcf
-# bgzip -c ${STEM}_raw_2.calls.vcf > ${STEM}_raw_2.calls.vcf.gz
-#
-# # normalize indels
-# bcftools norm -f ${REF} ${STEM}_raw_2.calls.vcf.gz -Ob -o ${STEM}_raw_2.calls.norm.bcf
-#
-# # filter adjacent indels within 5bp
-# bcftools filter --IndelGap 5 ${STEM}_raw_2.calls.norm.bcf -Ob -o ${STEM}_raw_2.calls.norm.flt-indels.bcf
-#
-# bcftools index ${STEM}_raw_2.calls.norm.flt-indels.bcf
-#
-# cat ${REF} | bcftools consensus ${STEM}_raw_2.calls.norm.flt-indels.bcf > ${STEM}_consensus.fa
 
 # experimental:
 
 pysamstats -d -f ${REF} --type variation_strand ${BAM2} > ${STEM}_step_cons.txt
 
-# For each row if column 4 value is less than 10 = TRUE enter the value in column 3
-# If column 34>column 40 > column 46 > column 52 = TRUE enter A
-# If column 40 > column 34 & 46 & 52 = TRUE enter C
-# If column 46 > column 34 & 40 & 52 = TRUE enter T
-# If column 52 > column 34 & 40 & 46 = TRUE enter G
+
 
 python ${WORK_DIR}/scripts/build_consensus.py -i ${STEM}_step_cons.txt -o ${STEM}_consensus.fa
 
@@ -292,15 +201,11 @@ echo -e "[SGE - $(date +"%T")]\tROUND THREE - Aligning to new reference and find
 REF2=${STEM}_consensus.fa
 FASTQ3=${STEM}_fwdRev.Q10.8500.fastq
 
-# minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
-# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
 
 minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
 
 PAF3=${STEM}_pt_ref_mapped.paf
 
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -f ${FASTQ3} -l 8500 -o ${STEM}_pt_ref_longest_hits.tsv > ${STEM}_pt_ref_length_filtered.fastq
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -l 8500 -o ${STEM}_pt_ref_longest_hits.tsv
 minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ3} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.bam -
 
 awk '{ if ($11>=8500) print $1}' ${PAF3} > ${STEM}_pt_ref_mapped.8500list.txt
@@ -317,47 +222,6 @@ samtools bam2fq ${STEM}_pt_ref_mapped.srt.filtered.bam > ${STEM}_pt_ref_mapped.f
 
 BAM3=${STEM}_pt_ref_mapped.srt.filtered.bam
 
-
-
-#
-# minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ3} > ${STEM}_pt_ref_mapped.paf
-# minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ3} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_mapped.srt.bam -
-#
-# BAM3=${STEM}_pt_ref_mapped.srt.bam
-# samtools index ${BAM3}
-# PAF3=${STEM}_pt_ref_mapped.paf
-
-# samtools view ${BAM2} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads_3.txt
-#
-# samtools view ${BAM2} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads_3.txt
-#
-# comm -12 ${STEM}_RevReads_3.txt ${STEM}_FwdReads_3.txt > ${STEM}_FwdandRev_3.txt
-#
-# cat ${STEM}_FwdandRev_3.txt | sort | uniq > ${STEM}_FwdandRev.uniq_3.txt
-#
-#
-# samtools view ${BAM2} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq_3.txt > ${STEM}_subset_3.sam
-#
-# samtools view -H ${BAM2} > ${STEM}_Header_3.txt
-#
-# cat ${STEM}_Header_3.txt ${STEM}_subset_3.sam > ${STEM}_subset.header_3.sam
-#
-# samtools view -S -b ${STEM}_subset.header_3.sam > ${STEM}_fwdRev_3.bam
-#
-# samtools index ${STEM}_fwdRev_3.bam
-#
-# samtools bam2fq ${STEM}_fwdRev_3.bam > ${STEM}_fwdRev_3.fastq
-#
-#
-# python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev_3.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10_3.fastq
-#
-#
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF3} -f ${STEM}_fwdRev.Q10_3.fastq -l 8500 >  ${STEM}_fwdRev.Q10.8500_3.fastq
-#
-#
-# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${STEM}_fwdRev.Q10.8500_3.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.8500_3.srt.bam -
-#
-#
 samtools index ${BAM3}
 
 samtools faidx ${REF2}
@@ -372,35 +236,24 @@ CALLS_TOT=$(grep ^# -v ${STEM}_variants_3.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
-# grep stop_gained ${STEM}_variants_3.csq.vcf | python3 ${WORK_DIR}/scripts/filter_stops.py ${BAM3} ${FASTQ3} ${STEM}_with_stop_3.fastq > ${STEM}_no_stop_3.fastq
 
 echo -e "[SGE - $(date +"%T")]\tBuilding .dict file"
 java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar CreateSequenceDictionary R=${REF2}
 
 grep stop_gained ${STEM}_variants_3.csq.vcf
 
-# for POS in $(grep stop_gained ${STEM}_variants_3.csq.vcf | awk '{print $2}'); do BASE=$(cat ${STEM}_variants_3.csq.vcf | awk -v a=${POS} '($2==a) {print $5}'); samtools view -h ${BAM3} | sam2tsv.jar -r ${REF2} | awk -v a=${POS} -v b=${BASE} '($8==a) && ($6==b)'; done > ${STEM}_reads_to_filter_3.tsv
 for POS in $(grep stop_gained ${STEM}_variants_3.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_3.tsv
-# python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${FASTQ3} -t ${STEM}_reads_to_filter_3.tsv -w ${STEM}_with_stop_3.fastq -n ${STEM}_no_stop_3.fastq
 python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_pt_ref_mapped.filtered.fastq -b ${BAM3} -t ${STEM}_positions_to_check_3.tsv -w ${STEM}_with_stop_3.fastq -n ${STEM}_no_stop_3.fastq > ${STEM}_filter_stops2_stdout_3.log
 POS=''
 BASE=''
-# ${WORK_DIR}/scripts/filter_stops.sh ${WORK_DIR} 3 ${STEM} ${REF2} ${BAM3} ${STEM}_variants_3.csq.vcf ${FASTQ3}
-
-# map fastq files and index bam files
 
 
 FASTQ4=${STEM}_no_stop_3.fastq
-
-# minimap2 -x map-ont -t 8 -k15 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq > ${STEM}_no_stop_2.paf
-# minimap2 -ax map-ont -k15 -t 8 ${REF2} ${FASTQS}/${BASE%.srt*}.fastq | samtools view -Sb - | samtools sort -o ${STEM}_no_stop_2.srt.bam -
 
 minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
 
 PAF4=${STEM}_pt_ref_mapped.paf
 
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF4} -f ${FASTQ4} -l 8500 -o ${STEM}_pt_ref_no_stop_longest_hits.tsv > ${STEM}_pt_ref_no_stop_length_filtered.fastq
-# python ${WORK_DIR}/scripts/length_paf.py -p ${PAF4} -l 8500 -o ${STEM}_pt_ref_no_stop_longest_hits.tsv
 minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ4} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.bam -
 
 awk '{ if ($11>=8500) print $1}' ${PAF4} > ${STEM}_pt_ref_no_stop.8500list.txt
@@ -415,24 +268,7 @@ samtools index ${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
 BAM4=${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
 
 
-
-
-# minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF2} ${FASTQ4} > ${STEM}_pt_ref_no_stop_mapped.paf
-# minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ4} | samtools view -Sb - | samtools sort -o ${STEM}_pt_ref_no_stop_mapped.srt.bam -
-#
-# BAM4=${STEM}_pt_ref_no_stop_mapped.srt.bam
-# samtools index ${BAM4}
-
-
 echo -e "[SGE - $(date +"%T")]\tDONE"
 
 
-
-
-
-
-
 # R commands to get deletion site mapping points
-
-#
-# NanoFilt -q 10
