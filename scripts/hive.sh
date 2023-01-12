@@ -116,7 +116,8 @@ bcftools call -v -Ov -m  ${STEM}_raw.vcf -o ${STEM}_raw.calls.vcf
 # consiquence calling
 bcftools csq -l -pa -f ${REF} -g ${GFF} ${STEM}_raw.calls.vcf -Ov -o ${STEM}_variants.csq.vcf
 # get number of variants called
-CALLS_TOT=$(grep ^# -v ${STEM}_variants.csq.vcf -c)
+CALLS_TOT=$(grep ^# \
+            -v ${STEM}_variants.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops, might take a while..."
@@ -163,7 +164,8 @@ bcftools call -v -Ov -m  ${STEM}_raw_2.vcf -o ${STEM}_raw_2.calls.vcf
 
 bcftools csq -l -pa -f ${REF} -g ${GFF} ${STEM}_raw_2.calls.vcf -Ov -o ${STEM}_variants_2.csq.vcf
 
-CALLS_TOT=$(grep ^# -v ${STEM}_variants_2.csq.vcf -c)
+CALLS_TOT=$(grep ^# \
+            -v ${STEM}_variants_2.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
@@ -232,7 +234,8 @@ bcftools call -v -Ov -m  ${STEM}_raw_3.vcf -o ${STEM}_raw_3.calls.vcf
 
 bcftools csq -l -pa -f ${REF2} -g ${GFF} ${STEM}_raw_3.calls.vcf -Ov -o ${STEM}_variants_3.csq.vcf
 
-CALLS_TOT=$(grep ^# -v ${STEM}_variants_3.csq.vcf -c)
+CALLS_TOT=$(grep ^# \
+            -v ${STEM}_variants_3.csq.vcf -c)
 echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
@@ -269,6 +272,3 @@ BAM4=${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
 
 
 echo -e "[SGE - $(date +"%T")]\tDONE"
-
-
-# R commands to get deletion site mapping points
