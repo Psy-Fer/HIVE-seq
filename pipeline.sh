@@ -20,8 +20,6 @@ if [ -z ${WORK_DIR} ]; then echo "WORK_DIR required, not present"; exit 1; fi
 if [ -z ${RAW_DATA} ]; then echo "RAW_DATA required, not present"; exit 1; fi
 if [ -z ${SAMPLE_NAME} ]; then echo "SAMPLE_NAME required, not present"; exit 1; fi
 
-# TODO: remove SGE specific runs and make regular bash calls
-
 
 echo -e "[SGE - $(date +"%T")]\t1. Launching basecalling"
 NUM_JOBS=$(find ${RAW_DATA} -type f -name "*.fast5" | wc -l)
