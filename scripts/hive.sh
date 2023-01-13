@@ -1,50 +1,51 @@
 #!/bin/bash
-#$ -cwd
-#$ -N HIVE
-#$ -S /bin/bash
-#$ -b y
-#$ -l mem_requested=16G
-#$ -l h_vmem=16G
-#$ -l tmp_requested=5G
-#$ -pe smp 8
-#$ -l nvgpu=1
-#$ -l h='epsilon*'
-# #$ -e /dev/null
-# #$ -o /dev/null
 
 
-module load centos6.10/marsmi/nanopore/minimap2/2.17-r943-dirty
-module load centos6.10/evaben7/gcc/8.2.0
-module load centos6.10/evaben7/samtools/1.9/gcc-8.2.0
-module load centos6.10/evaben7/bcftools/1.9/gcc-8.2.0
-module load centos6.10/evaben7/htslib/1.9/gcc-8.2.0
-module load centos6.10/shacar/java/jdk-11.0.2
-module load centos6.10/jamfer/jvarkit/2b40bcc
-module load centos6.10/briglo/picard/2.9.4
+# module load centos6.10/marsmi/nanopore/minimap2/2.17-r943-dirty
+# module load centos6.10/evaben7/gcc/8.2.0
+# module load centos6.10/evaben7/samtools/1.9/gcc-8.2.0
+# module load centos6.10/evaben7/bcftools/1.9/gcc-8.2.0
+# module load centos6.10/evaben7/htslib/1.9/gcc-8.2.0
+# module load centos6.10/shacar/java/jdk-11.0.2
+# module load centos6.10/jamfer/jvarkit/2b40bcc
+# module load centos6.10/briglo/picard/2.9.4
 
 
-# samtools view -h barcode09_fwdRev.Q10.8500.srt.bam | sam2tsv.jar -r ../../ref/HXB2_trimmed.fasta | awk '($8==5435) && ($6=="T")' > reads_with_T_5435.tsv
+# source /home/jamfer/work/venv363/bin/activate
 
-
-
-source /home/jamfer/work/venv363/bin/activate
-
-BAMS=$1
+FASTQ=$1
+STEM=${FASTQ##*/}
 WORK_DIR=$2
-CALLS=$3
-FASTQS=$4
-REF=/directflow/KCCGGenometechTemp/projects/jamfer/HIVE/ref/HXB2_trimmed.fasta
-GFF=/directflow/KCCGGenometechTemp/projects/jamfer/HIVE/ref/HXB2_AA_17Jul20.gff
+# SCRIPTS=${WORK_DIR}/scripts
+BAMS=${WORK_DIR}/bams
+CALLS=${WORK_DIR}/calls
+REF=$3
+GFF=$4
+PICARD=$5
+
+echo -e "hive.sh script is ${0}"
+SCRIPT=$0
+SCRIPTS=${SCRIPT%/*}
+echo -e "the script path is ${SCRIPTS}"
+
+# REF=/directflow/KCCGGenometechTemp/projects/jamfer/HIVE/ref/HXB2_trimmed.fasta
+# GFF=/directflow/KCCGGenometechTemp/projects/jamfer/HIVE/ref/HXB2_AA_17Jul20.gff
 echo -e "[SGE - $(date +"%T")]\tHive-seq starting"
+# make bams folder
+if [ ! -d ${BAMS} ]; then mkdir -p ${BAMS}; fi
 
 echo -e "[SGE - $(date +"%T")]\tBuilding .dict file"
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar CreateSequenceDictionary R=${REF}
+# java -jar picard.jar CreateSequenceDictionary R=${REF}
+java -jar ${PICARD} CreateSequenceDictionary R=${REF}
 
 echo -e "[SGE - $(date +"%T")]\tBAMS: ${BAMS}"
 echo -e "[SGE - $(date +"%T")]\tWORK_DIR: ${WORK_DIR}"
 
+minimap2 -cx map-ont --secondary=no -t 8 -k15 $REF $FASTQ > ${BAMS}/${STEM%*.fastq}.paf
+minimap2 -ax map-ont --secondary=no -t 8 -k15 $REF $FASTQ | samtools view -Sb - | samtools sort -o ${BAMS}/${STEM%*.fastq}.srt.bam -
+samtools index ${BAMS}/${STEM%*.fastq}.srt.bam
 
-BAM=$(find ${BAMS} -type f -name "*.srt.bam" | sed -n ${SGE_TASK_ID}p)
+BAM=$(find ${BAMS} -type f -name "*.srt.bam")
 echo -e "[SGE - $(date +"%T")]\tBAM: ${BAM}"
 BASE=${BAM##*/}
 echo -e "[SGE - $(date +"%T")]\tBASE: ${BASE}"
@@ -59,19 +60,20 @@ echo -e "[SGE - $(date +"%T")]\tSTEM: ${STEM}"
 
 echo -e "[SGE - $(date +"%T")]\tROUND ONE - Finding stops in alignment"
 
+
 # add in first alignment step too
 
 # Get the fwd and rev reads that span the full length
 samtools view ${BAM} Human:60-80 | cut -f1 | sort -u > ${STEM}_FwdReads.txt
 samtools view ${BAM} Human:8991-9001 | cut -f1 | sort -u > ${STEM}_RevReads.txt
 
-# merge them
+# merge them with comm
 comm -12 ${STEM}_RevReads.txt ${STEM}_FwdReads.txt > ${STEM}_FwdandRev.txt
 # uniq them
 cat ${STEM}_FwdandRev.txt | sort | uniq > ${STEM}_FwdandRev.uniq.txt
 
 # pull reads from bam and filter to reads found above
-samtools view ${BAM} | python ${WORK_DIR}/scripts/bam_get_reads.py -r ${STEM}_FwdandRev.uniq.txt > ${STEM}_subset.sam
+samtools view ${BAM} | python ${SCRIPTS}/bam_get_reads.py -r ${STEM}_FwdandRev.uniq.txt > ${STEM}_subset.sam
 # get header
 samtools view -H ${BAM} > ${STEM}_Header.txt
 # paste them together (this could probably be done in the python file by just printing lines starting with @ rather than skipping them)
@@ -82,26 +84,26 @@ samtools index ${STEM}_fwdRev.bam
 # turn into fastq
 samtools bam2fq ${STEM}_fwdRev.bam > ${STEM}_fwdRev.fastq
 # filter for Q10 reads
-python ${WORK_DIR}/scripts/qfilter.py -f ${STEM}_fwdRev.fastq -s ${WORK_DIR}/guppy_output/sequencing_summary.txt -q 10.0 > ${STEM}_fwdRev.Q10.fastq
+python ${SCRIPTS}/split_qscore.py -q 10 -p ${BASE%.srt*}_fwdRev.Q10 ${STEM}_fwdRev.fastq ${FOLD}/
 
 #Count number of reads
 
 #TODO: also output a flat file of readID, start site, CIGAR for filtering
 
 #count number of reads
-minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF} ${STEM}_fwdRev.Q10.fastq > ${STEM}_fwdRev.Q10.paf
-minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.srt.bam -
+minimap2 -cx map-ont --secondary=no -t 8 -k15 ${REF} ${STEM}_fwdRev.Q10.pass.fastq > ${STEM}_fwdRev.Q10.paf
+minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_fwdRev.Q10.pass.fastq | samtools view -Sb - | samtools sort -o ${STEM}_fwdRev.Q10.srt.bam -
 
 awk '{ if ($11>=8500) print $1}' ${STEM}_fwdRev.Q10.paf > ${STEM}_Q10.8500list.txt
 
 # filter reads with above readlist
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar FilterSamReads I=${STEM}_fwdRev.Q10.srt.bam O=${STEM}_fwdRev.Q10.8500.srt.pre-filter.bam READ_LIST_FILE=${STEM}_Q10.8500list.txt FILTER=includeReadList
+java -jar ${PICARD} FilterSamReads I=${STEM}_fwdRev.Q10.srt.bam O=${STEM}_fwdRev.Q10.8500.srt.pre-filter.bam READ_LIST_FILE=${STEM}_Q10.8500list.txt FILTER=includeReadList
 # TODO: using paf file output, filter bam using start site and CIGAR string
 
 # bam to sam
 samtools view -h ${STEM}_fwdRev.Q10.8500.srt.pre-filter.bam > ${STEM}_fwdRev.Q10.8500.srt.pre-filter.sam
 # Reads CIGAR string and removes any deletions larger than -l 250
-python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_fwdRev.Q10.8500.srt.pre-filter.sam -l 250 > ${STEM}_fwdRev.Q10.8500.srt.filtered.sam
+python ${SCRIPTS}/filter_bam.py -s ${STEM}_fwdRev.Q10.8500.srt.pre-filter.sam -l 250 > ${STEM}_fwdRev.Q10.8500.srt.filtered.sam
 # Sort sam to Bam
 samtools sort ${STEM}_fwdRev.Q10.8500.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_fwdRev.Q10.8500.srt.filtered.bam
 samtools index ${STEM}_fwdRev.Q10.8500.srt.filtered.bam
@@ -126,7 +128,7 @@ grep stop_gained ${STEM}_variants.csq.vcf
 # for each stop, find reads that have that variant at that position and put into a list of ${STEM}_reads_to_filter_1.tsv
 for POS in $(grep stop_gained ${STEM}_variants.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_1.tsv
 # go through fastq and filter into with stop/no stop outputs (DO STOP CODON CHECK HERE!!!)
-python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_fwdRev.Q10.8500.fastq -b ${STEM}_fwdRev.Q10.8500.srt.filtered.bam -t ${STEM}_positions_to_check_1.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq > ${STEM}_filter_stops2_stdout_1.log
+python3 ${SCRIPTS}/filter_stops2.py -f ${STEM}_fwdRev.Q10.8500.fastq -b ${STEM}_fwdRev.Q10.8500.srt.filtered.bam -t ${STEM}_positions_to_check_1.tsv -w ${STEM}_with_stop_1.fastq -n ${STEM}_no_stop_1.fastq > ${STEM}_filter_stops2_stdout_1.log
 
 
 POS=''
@@ -145,10 +147,10 @@ minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF} ${STEM}_no_stop_1.fastq | s
 
 awk '{ if ($11>=8500) print $1}' ${PAF2} > ${STEM}_no_stop_1.8500list.txt
 
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar FilterSamReads I=${STEM}_no_stop_1.bam O=${STEM}_no_stop_1.srt.pre-filter.bam READ_LIST_FILE=${STEM}_no_stop_1.8500list.txt FILTER=includeReadList
+java -jar ${PICARD} FilterSamReads I=${STEM}_no_stop_1.bam O=${STEM}_no_stop_1.srt.pre-filter.bam READ_LIST_FILE=${STEM}_no_stop_1.8500list.txt FILTER=includeReadList
 
 samtools view -h ${STEM}_no_stop_1.srt.pre-filter.bam > ${STEM}_no_stop_1.srt.pre-filter.sam
-python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_no_stop_1.srt.pre-filter.sam -l 250 > ${STEM}_no_stop_1.srt.filtered.sam
+python ${SCRIPTS}/filter_bam.py -s ${STEM}_no_stop_1.srt.pre-filter.sam -l 250 > ${STEM}_no_stop_1.srt.filtered.sam
 samtools sort ${STEM}_no_stop_1.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_no_stop_1.srt.filtered.bam
 samtools index ${STEM}_no_stop_1.srt.filtered.bam
 
@@ -175,7 +177,7 @@ grep stop_gained ${STEM}_variants_2.csq.vcf
 
 for POS in $(grep stop_gained ${STEM}_variants_2.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_2.tsv
 
-python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_no_stop_1.filtered.fastq -b ${BAM2} -t ${STEM}_positions_to_check_2.tsv -w ${STEM}_with_stop_2.fastq -n ${STEM}_no_stop_2.fastq > ${STEM}_filter_stops2_stdout_2.log
+python3 ${SCRIPTS}/filter_stops2.py -f ${STEM}_no_stop_1.filtered.fastq -b ${BAM2} -t ${STEM}_positions_to_check_2.tsv -w ${STEM}_with_stop_2.fastq -n ${STEM}_no_stop_2.fastq > ${STEM}_filter_stops2_stdout_2.log
 
 POS=''
 BASE=''
@@ -192,7 +194,7 @@ pysamstats -d -f ${REF} --type variation_strand ${BAM2} > ${STEM}_step_cons.txt
 
 
 
-python ${WORK_DIR}/scripts/build_consensus.py -i ${STEM}_step_cons.txt -o ${STEM}_consensus.fa
+python ${SCRIPTS}/build_consensus.py -i ${STEM}_step_cons.txt -o ${STEM}_consensus.fa
 
 # ------------------------------------------------------------------------------------
 
@@ -212,10 +214,10 @@ minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ3} | samtools view 
 
 awk '{ if ($11>=8500) print $1}' ${PAF3} > ${STEM}_pt_ref_mapped.8500list.txt
 
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar FilterSamReads I=${STEM}_pt_ref_mapped.bam O=${STEM}_pt_ref_mapped.srt.pre-filter.bam READ_LIST_FILE=${STEM}_pt_ref_mapped.8500list.txt FILTER=includeReadList
+java -jar ${PICARD} FilterSamReads I=${STEM}_pt_ref_mapped.bam O=${STEM}_pt_ref_mapped.srt.pre-filter.bam READ_LIST_FILE=${STEM}_pt_ref_mapped.8500list.txt FILTER=includeReadList
 
 samtools view -h ${STEM}_pt_ref_mapped.srt.pre-filter.bam > ${STEM}_pt_ref_mapped.srt.pre-filter.sam
-python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_pt_ref_mapped.srt.pre-filter.sam -l 250 > ${STEM}_pt_ref_mapped.srt.filtered.sam
+python ${SCRIPTS}/filter_bam.py -s ${STEM}_pt_ref_mapped.srt.pre-filter.sam -l 250 > ${STEM}_pt_ref_mapped.srt.filtered.sam
 samtools sort ${STEM}_pt_ref_mapped.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_pt_ref_mapped.srt.filtered.bam
 samtools index ${STEM}_pt_ref_mapped.srt.filtered.bam
 
@@ -241,12 +243,12 @@ echo -e "[SGE - $(date +"%T")]\tNumber of Calls: ${CALLS_TOT}"
 echo -e "[SGE - $(date +"%T")]\tFiltering stops again, might take a while..."
 
 echo -e "[SGE - $(date +"%T")]\tBuilding .dict file"
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar CreateSequenceDictionary R=${REF2}
+java -jar ${PICARD} CreateSequenceDictionary R=${REF2}
 
 grep stop_gained ${STEM}_variants_3.csq.vcf
 
 for POS in $(grep stop_gained ${STEM}_variants_3.csq.vcf | awk '{print $2}'); do echo $POS; done > ${STEM}_positions_to_check_3.tsv
-python3 ${WORK_DIR}/scripts/filter_stops2.py -f ${STEM}_pt_ref_mapped.filtered.fastq -b ${BAM3} -t ${STEM}_positions_to_check_3.tsv -w ${STEM}_with_stop_3.fastq -n ${STEM}_no_stop_3.fastq > ${STEM}_filter_stops2_stdout_3.log
+python3 ${SCRIPTS}/filter_stops2.py -f ${STEM}_pt_ref_mapped.filtered.fastq -b ${BAM3} -t ${STEM}_positions_to_check_3.tsv -w ${STEM}_with_stop_3.fastq -n ${STEM}_no_stop_3.fastq > ${STEM}_filter_stops2_stdout_3.log
 POS=''
 BASE=''
 
@@ -261,10 +263,10 @@ minimap2 -ax map-ont --secondary=no -k15 -t 8 ${REF2} ${FASTQ4} | samtools view 
 
 awk '{ if ($11>=8500) print $1}' ${PAF4} > ${STEM}_pt_ref_no_stop.8500list.txt
 
-java -jar /share/ClusterShare/software/contrib/briglo/picard/build/libs/picard.jar FilterSamReads I=${STEM}_pt_ref_no_stop_mapped.bam O=${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.bam READ_LIST_FILE=${STEM}_pt_ref_no_stop.8500list.txt FILTER=includeReadList
+java -jar ${PICARD} FilterSamReads I=${STEM}_pt_ref_no_stop_mapped.bam O=${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.bam READ_LIST_FILE=${STEM}_pt_ref_no_stop.8500list.txt FILTER=includeReadList
 
 samtools view -h ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.bam > ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.sam
-python ${WORK_DIR}/scripts/filter_bam.py -s ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.sam -l 250 > ${STEM}_pt_ref_no_stop_mapped.srt.filtered.sam
+python ${SCRIPTS}/filter_bam.py -s ${STEM}_pt_ref_no_stop_mapped.srt.pre-filter.sam -l 250 > ${STEM}_pt_ref_no_stop_mapped.srt.filtered.sam
 samtools sort ${STEM}_pt_ref_no_stop_mapped.srt.filtered.sam -T ${STEM}.tmp  > ${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
 samtools index ${STEM}_pt_ref_no_stop_mapped.srt.filtered.bam
 

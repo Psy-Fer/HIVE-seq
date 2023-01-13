@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-# HIVE-seq
+# HIVE-seq - with SGE calling
 
 WORK_DIR=$1
 RAW_DATA=$2
@@ -9,11 +9,11 @@ SAMPLE_NAME=$3
 SCRIPTS=${WORK_DIR}/scripts
 BAMS=${WORK_DIR}/bams
 CALLS=${WORK_DIR}/calls
-# TODO: make REF an arg
-REF=/directflow/KCCGGenometechTemp/projects/jamfer/HIVE/ref/HXB2_trimmed.fasta
+REF=$4
 GUPPY_OUT=${WORK_DIR}/guppy_output
 # TODO: Make GUP_MODEL an arg with a default
-GUP_MODEL=dna_r9.4.1_450bps_hac.cfg
+GUP_MODEL=$5
+# GUP_MODEL=dna_r9.4.1_450bps_hac.cfg
 
 # TODO: extend to include all new args
 if [ -z ${WORK_DIR} ]; then echo "WORK_DIR required, not present"; exit 1; fi

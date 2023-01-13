@@ -184,7 +184,8 @@ def main():
                     else:
                         print("False")
                 else:
-                    print("Position not found!!!!")
+                    print(idx, pos)
+                    print("Position not found")
             if check:
                 W.write(line1)
                 W.write('\n')
