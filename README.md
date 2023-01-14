@@ -26,7 +26,7 @@ OpenJDK 64-Bit Server VM (build 11.0.16+8-post-Ubuntu-0ubuntu122.04, mixed mode,
 ## Setup python environment
 
 ```
-python -m venv HIVE-seq-py3.8
+python3.8 -m venv HIVE-seq-py3.8
 source HIVE-seq-py3.8/bin/activate
 
 
