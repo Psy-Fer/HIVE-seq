@@ -1,6 +1,8 @@
 
 # HIVepsilon-seq - scalable characterisation of intact persistent proviral HIV reservoirs in women
 
+### Paper: https://doi.org/10.1128/jvi.00705-23
+
 ## HIVe-seq
 
 Run guppy basecaller to produce fastq file
